@@ -19,7 +19,7 @@ FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 openai.api_key = OPENAI_API_KEY
 
-cred = credentials.Certificate(eval(FIREBASE_CREDENTIALS_JSON))
+cred = credentials.Certificate(json.loads(os.environ.get("FIREBASE_CREDENTIALS_JSON")))
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
