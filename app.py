@@ -6,6 +6,7 @@ import openai
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
+import json
 
 app = Flask(__name__)
 
