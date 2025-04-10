@@ -16,7 +16,7 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
+openai.api_key = OPENAI_API_KEY
 
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 firebase_admin.initialize_app(cred)
@@ -41,13 +41,13 @@ def sms_reply():
 
         prompt = f"You are an aggressive but supportive accountability coach. Keep responses short and direct.\nUser: {incoming_msg}\nCoach:"
 
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an accountability AI coach."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+        response = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role": "system", "content": "You are an accountability AI coach."},
+        {"role": "user", "content": prompt}
+    ]
+)
 
         ai_reply = response.choices[0].message.content.strip()
 
