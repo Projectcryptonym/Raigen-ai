@@ -1,5 +1,6 @@
-Flask
-twilio
-openai
-firebase-admin
-gunicorn
+Flask==3.0.2
+twilio==8.10.0
+openai==1.14.3
+firebase-admin==6.4.0
+gunicorn==21.2.0
+
