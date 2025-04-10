@@ -1,5 +1,3 @@
-# app.py
-
 from flask import Flask, request
 from twilio.rest import Client
 import openai
@@ -18,9 +16,9 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-openai.api_key = OPENAI_API_KEY
+openai_client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
-cred = credentials.Certificate(json.loads(os.environ.get("FIREBASE_CREDENTIALS_JSON")))
+cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
@@ -36,24 +34,22 @@ def sms_reply():
 
         print(f"[Incoming SMS] From: {sender} | Message: {incoming_msg}")
 
+        # Firestore user history
         user_ref = db.collection("users").document(sender)
         user_doc = user_ref.get()
         history = user_doc.to_dict().get("history", "") if user_doc.exists else ""
 
         prompt = f"You are an aggressive but supportive accountability coach. Keep responses short and direct.\nUser: {incoming_msg}\nCoach:"
 
-        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an accountability AI coach."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-response = client.chat.completions.create(
-    model="gpt-4-turbo",
-    messages=[
-        {"role": "system", "content": "You are an accountability AI coach."},
-        {"role": "user", "content": prompt}
-    ]
-)
-
-ai_reply = response.choices[0].message.content.strip()
-
+        ai_reply = response.choices[0].message.content.strip()
 
         twilio_client.messages.create(
             body=ai_reply,
@@ -69,8 +65,6 @@ ai_reply = response.choices[0].message.content.strip()
         return "OK", 200
 
     except Exception as e:
-        print(f"[Error] {str(e)}")
-        return "Error", 500
+        print(f"[Error] {e}")
+        return str(e), 500
 
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
