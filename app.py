@@ -42,14 +42,18 @@ def sms_reply():
 
         prompt = f"You are an aggressive but supportive accountability coach. Keep responses short and direct.\nUser: {incoming_msg}\nCoach:"
 
-        response = openai.ChatCompletion.create(
-            model="gpt-4-turbo",
-            messages=[
-                {"role": "system", "content": "You are an accountability AI coach."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        ai_reply = response.choices[0].message.content.strip()
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+response = client.chat.completions.create(
+    model="gpt-4-turbo",
+    messages=[
+        {"role": "system", "content": "You are an accountability AI coach."},
+        {"role": "user", "content": prompt}
+    ]
+)
+
+ai_reply = response.choices[0].message.content.strip()
+
 
         twilio_client.messages.create(
             body=ai_reply,
