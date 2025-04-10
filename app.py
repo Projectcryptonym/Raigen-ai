@@ -1,6 +1,6 @@
 from flask import Flask, request
 from twilio.rest import Client
-import openai
+from openai import OpenAI
 import firebase_admin
 from firebase_admin import credentials, firestore
 import os
