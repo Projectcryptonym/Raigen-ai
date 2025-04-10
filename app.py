@@ -41,8 +41,8 @@ def sms_reply():
 
         prompt = f"You are an aggressive but supportive accountability coach. Keep responses short and direct.\nUser: {incoming_msg}\nCoach:"
 
-        response = openai.ChatCompletion.create(
-    model="gpt-3.5-turbo",
+     response = client.chat.completions.create(
+    model="gpt-4-turbo",
     messages=[
         {"role": "system", "content": "You are an accountability AI coach."},
         {"role": "user", "content": prompt}
