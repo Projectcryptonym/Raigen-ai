@@ -5,6 +5,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 import os
 import json
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -38,11 +39,56 @@ def sms_reply():
         user_doc = user_ref.get()
         history = user_doc.to_dict().get("history", "") if user_doc.exists else ""
 
-        # ----- Basic Context Inference (v1 stub until we build smarter detection) -----
-        emotion_state = "unknown"  # Upgrade in Step 2
-        domain_context = "general"  # Upgrade in Step 2
-        behavior_mode = "insight"  # Upgrade in Step 2
-        coaching_goal = "help the user gain clarity and take action"  # Optional dynamic
+        # ----- Emotion Detection -----
+        lower_msg = incoming_msg.lower()
+        if any(x in lower_msg for x in ["i failed", "i suck", "i’m a mess", "i can’t", "why bother", "what’s the point"]):
+            emotion_state = "ashamed"
+        elif any(x in lower_msg for x in ["tired", "burned out", "exhausted", "overwhelmed"]):
+            emotion_state = "burned out"
+        elif any(x in lower_msg for x in ["i did it", "crushed it", "win", "nailed it"]):
+            emotion_state = "victorious"
+        elif any(x in lower_msg for x in ["anxious", "worried", "panic", "nervous"]):
+            emotion_state = "anxious"
+        else:
+            emotion_state = "neutral"
+
+        # ----- Domain Context Detection -----
+        if any(x in lower_msg for x in ["gym", "workout", "run", "lift", "training"]):
+            domain_context = "fitness"
+        elif any(x in lower_msg for x in ["food", "eating", "diet", "snack", "binge"]):
+            domain_context = "nutrition"
+        elif any(x in lower_msg for x in ["money", "budget", "broke", "debt"]):
+            domain_context = "finance"
+        elif any(x in lower_msg for x in ["focus", "distraction", "procrastinate", "tasks", "overwhelm"]):
+            domain_context = "productivity"
+        elif any(x in lower_msg for x in ["why", "what’s the point", "purpose", "meaning", "identity"]):
+            domain_context = "mindset"
+        elif any(x in lower_msg for x in ["i hate myself", "i lied", "i relapsed", "i’m lost"]):
+            domain_context = "confession"
+        else:
+            domain_context = "general"
+
+        # ----- Behavior Mode Logic -----
+        if emotion_state == "ashamed":
+            behavior_mode = "empathy"
+        elif emotion_state == "burned out":
+            behavior_mode = "reflection"
+        elif emotion_state == "victorious":
+            behavior_mode = "motivation"
+        elif emotion_state == "anxious":
+            behavior_mode = "insight"
+        elif "plan" in lower_msg or "what should i do" in lower_msg:
+            behavior_mode = "strategy"
+        elif "didn’t" in lower_msg or "ghosted" in lower_msg or "failed" in lower_msg:
+            behavior_mode = "accountability"
+        else:
+            behavior_mode = "insight"
+
+        coaching_goal = "help the user gain clarity and take action"
+
+        # ----- Update Last Interaction Timestamp -----
+        now = datetime.utcnow()
+        user_ref.set({"last_interaction": now.isoformat()}, merge=True)
 
         # ----- Memory Pull from Firebase -----
         user_memory_snippet = ""
@@ -59,7 +105,7 @@ def sms_reply():
                 memory_lines.append(f"• Confession: {user_data['confession_log'][-1]}")
             user_memory_snippet = "\n".join(memory_lines)
 
-        # ----- Full Prompt Scaffolding -----
+        # ----- Full Prompt -----
         prompt = f"""
 You are Big Brother — a tough-love AI coach with emotional intelligence, deep memory, and domain-specific expertise. You speak like a real person — not robotic, not fluffy. You are sometimes blunt, sometimes warm, always real.
 
