@@ -163,16 +163,9 @@ def sms_reply():
             return "User opted out", 200
 
         if incoming_msg.strip().lower() in ["stop", "unsubscribe", "cancel", "leave me alone"]:
-            user_ref.set({"opted_out": True}, merge=True)
-            try:
-        send_message(
-                send_message("Understood. You won’t receive any more messages. If you change your mind, just say 'START'.", sender)
-                from_=TWILIO_PHONE_NUMBER,
-        to=sender
-    )
-except Exception as twilio_error:
-    print(f"[Twilio Error] Failed to send message to {sender}: {str(twilio_error)}")
-            return "Opt-out confirmed", 200
+    user_ref.set({"opted_out": True}, merge=True)
+    send_message("Understood. You won’t receive any more messages. If you change your mind, just say 'START'.", sender)
+    return "Opt-out confirmed", 200
 
         onboarding_stage = user_data.get("onboarding_stage", 0)
         reply = handle_onboarding(onboarding_stage, incoming_msg, user_ref, client)
@@ -197,11 +190,11 @@ except Exception as twilio_error:
         now = datetime.utcnow()
         user_ref.set({"last_interaction": now.isoformat()}, merge=True)
         try:
-        db.collection("users").document(sender).collection("messages").add({
-            "timestamp": now.isoformat(),
-            "message": incoming_msg,
-            "from_user": True
-        })
+    db.collection("users").document(sender).collection("messages").add({
+        "timestamp": now.isoformat(),
+        "message": incoming_msg,
+        "from_user": True
+    })
 
         local_hour = datetime.now(timezone.utc).astimezone().hour
         if local_hour < 7:
@@ -302,4 +295,5 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
 
