@@ -229,7 +229,7 @@ def sms_reply():
 
     except Exception as e:
         print(f"[Error] {str(e)}")
-        return str(e), 500
+        return "", 200
 
 def handle_onboarding(stage, msg, user_ref, client):
     if stage == 0:
@@ -287,3 +287,4 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
+
