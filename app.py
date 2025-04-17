@@ -61,6 +61,7 @@ def send_message(body, to):
                 to=to
             )
             print(f"[Twilio] Sent chunk to {to} | SID: {msg.sid} | Status: {msg.status}")
+    except Exception as e:
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
 
 def call_big_brother(prompt):
@@ -138,10 +139,10 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 
 # Initialize clients
-twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-client = OpenAI(api_key=OPENAI_API_KEY)
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 firebase_admin.initialize_app(cred)
+twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+client = OpenAI(api_key=OPENAI_API_KEY)
 db = firestore.client()
 
 @app.route("/")
@@ -287,3 +288,4 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
+
