@@ -32,7 +32,7 @@ def handle_onboarding(stage, msg, user_ref, client):
     if stage == 0:
         user_ref.set({"onboarding_stage": 1}, merge=True)
         intro = "Welcome to Big Brother AI. Let's keep this simple and real. I'm here to help you become the best version of yourself - the one you know you're capable of becoming."
-        return f"{intro}
+        return f"{intro}\\n\\nLet's start simple: Who are you and what's going on in your life right now?"
 
 Let's start simple: Who are you and what's going on in your life right now?"
 
