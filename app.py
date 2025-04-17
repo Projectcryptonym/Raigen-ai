@@ -303,10 +303,3 @@ def build_user_memory(user_data):
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
 
-
-
-
-
-
-
-
