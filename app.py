@@ -27,7 +27,6 @@ db = firestore.client()
 def home():
     return "Big Brother AI Backend is Running ✅"
 
-@app.route("/sms", methods=["POST"])
 def handle_onboarding(stage, msg, user_ref, client):
     if stage == 0:
         user_ref.set({"onboarding_stage": 1}, merge=True)
@@ -275,6 +274,7 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
 
 
 
