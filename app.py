@@ -35,6 +35,8 @@ def handle_onboarding(stage, msg, user_ref, client):
         return f"{intro}\\n\\nLet's start simple: Who are you and what's going on in your life right now?"
 
 
+
+
     if stage == 1:
         prompt = f"The user was asked to describe who they are. They said: '{msg}'. Is this a clear, honest, coaching-grade answer? Reply only 'yes' or 'no'."
         result = client.chat.completions.create(
@@ -188,7 +190,15 @@ def sms_reply():
         else:
             time_context = "late night"
 
-        mood = user_data.get("mood", "neutral")
+        mood = "neutral"
+        if user_data.get("streak_days", 0) >= 10:
+            mood = "locked-in"
+        elif user_data.get("wins", 0) >= 5:
+            mood = "respectful"
+        elif user_data.get("silence_ping_count", 0) >= 3:
+            mood = "cold"
+        elif user_data.get("clarity_push_count", 0) >= 2:
+            mood = "frustrated"
         coaching_goal = "help the user gain clarity and take action"
         user_memory_snippet = build_user_memory(user_data)
 
@@ -215,6 +225,35 @@ def sms_reply():
         print(f"[Error] {str(e)}")
         return str(e), 500
 
+def classify_emotion_and_domain(message):
+    msg = message.lower()
+    emotion = "neutral"
+    domain = "general"
+
+    if any(x in msg for x in ["i failed", "i suck", "i’m a mess", "i can’t", "why bother", "what’s the point"]):
+        emotion = "ashamed"
+    elif any(x in msg for x in ["tired", "burned out", "exhausted", "overwhelmed"]):
+        emotion = "burned out"
+    elif any(x in msg for x in ["i did it", "crushed it", "win", "nailed it"]):
+        emotion = "victorious"
+    elif any(x in msg for x in ["anxious", "worried", "panic", "nervous"]):
+        emotion = "anxious"
+
+    if any(x in msg for x in ["gym", "workout", "run", "lift", "training"]):
+        domain = "fitness"
+    elif any(x in msg for x in ["food", "eating", "diet", "snack", "binge"]):
+        domain = "nutrition"
+    elif any(x in msg for x in ["money", "budget", "broke", "debt"]):
+        domain = "finance"
+    elif any(x in msg for x in ["focus", "distraction", "procrastinate", "tasks", "overwhelm"]):
+        domain = "productivity"
+    elif any(x in msg for x in ["why", "what’s the point", "purpose", "meaning", "identity"]):
+        domain = "mindset"
+    elif any(x in msg for x in ["i hate myself", "i lied", "i relapsed", "i’m lost"]):
+        domain = "confession"
+
+    return emotion, domain
+
 def build_user_memory(user_data):
     memory_lines = []
     if "goals" in user_data:
@@ -234,4 +273,6 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
+
 
