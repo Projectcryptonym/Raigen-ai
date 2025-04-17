@@ -287,14 +287,3 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
-
-
-
-
-
-
-
-
-
-
-
