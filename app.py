@@ -39,7 +39,6 @@ def sms_reply():
         user_doc = user_ref.get()
         user_data = user_doc.to_dict() if user_doc.exists else {}
 
-        # Opt-out handling
         if incoming_msg.strip().lower() in ["stop", "unsubscribe", "cancel", "leave me alone"]:
             user_ref.set({"opted_out": True}, merge=True)
             twilio_client.messages.create(
@@ -53,27 +52,26 @@ def sms_reply():
             print(f"[Opted Out] {sender} is opted out. Ignoring message.")
             return "User opted out", 200
 
-        # Onboarding logic
         onboarding_stage = user_data.get("onboarding_stage", 0)
 
         if onboarding_stage == 0:
             user_ref.set({"onboarding_stage": 1}, merge=True)
             intro_text = (
-                "Welcome to Big Brother AI. I'm not here to babysit. I'm here to help you become the person you promised yourself you'd become."
+                "Welcome to Big Brother AI. Let’s keep this simple and real. I’m here to help you become the best version of yourself — the one you know you’re capable of becoming."
             )
             question = "Let’s start simple: Who are you and what’s going on in your life right now?"
             reply = f"{intro_text}\n\n{question}"
         elif onboarding_stage == 1:
             user_ref.set({"identity": incoming_msg, "onboarding_stage": 2}, merge=True)
-            reply = "What’s one specific thing you want to accomplish or change in the next 30 days?"
+            reply = "What are some specific things you want to accomplish or change in the next 30 days?"
         elif onboarding_stage == 2:
-            user_ref.set({"goal": incoming_msg, "onboarding_stage": 3}, merge=True)
+            goals = [g.strip() for g in incoming_msg.split(",") if g.strip()]
+            user_ref.set({"goals": goals, "onboarding_stage": 3}, merge=True)
             reply = "What usually gets in your way? Be honest."
         elif onboarding_stage == 3:
-            user_ref.set({"obstacle": incoming_msg, "onboarding_stage": 4}, merge=True)
-            reply = (
-                "When I check in with you, do you want blunt honesty or more encouragement and support?"
-            )
+            obstacles = [o.strip() for o in incoming_msg.split(",") if o.strip()]
+            user_ref.set({"obstacles": obstacles, "onboarding_stage": 4}, merge=True)
+            reply = "When I check in with you, do you want blunt honesty or more encouragement and support?"
         elif onboarding_stage == 4:
             user_ref.set({"tone_preference": incoming_msg, "onboarding_stage": "complete"}, merge=True)
             reply = "Got it. We’re locked in. I’ll be keeping an eye on you. Let’s go."
@@ -81,10 +79,8 @@ def sms_reply():
             user_ref.set({"why": incoming_msg, "why_pending": False}, merge=True)
             reply = "That’s powerful. I’ll remember that. Let’s get back to work."
         else:
-            # Main logic post-onboarding
             lower_msg = incoming_msg.lower()
 
-            # Emotion detection
             if any(x in lower_msg for x in ["i failed", "i suck", "i’m a mess", "i can’t", "why bother", "what’s the point"]):
                 emotion_state = "ashamed"
             elif any(x in lower_msg for x in ["tired", "burned out", "exhausted", "overwhelmed"]):
@@ -96,7 +92,6 @@ def sms_reply():
             else:
                 emotion_state = "neutral"
 
-            # Domain context
             if any(x in lower_msg for x in ["gym", "workout", "run", "lift", "training"]):
                 domain_context = "fitness"
             elif any(x in lower_msg for x in ["food", "eating", "diet", "snack", "binge"]):
@@ -113,29 +108,27 @@ def sms_reply():
                 domain_context = "general"
 
             coaching_goal = "help the user gain clarity and take action"
-
             now = datetime.utcnow()
             user_ref.set({"last_interaction": now.isoformat()}, merge=True)
 
-            # Memory pull
             user_memory_snippet = ""
             memory_lines = []
-            if "goal" in user_data:
-                memory_lines.append(f"• Goal: {user_data['goal']}")
-            if "obstacle" in user_data:
-                memory_lines.append(f"• Obstacle: {user_data['obstacle']}")
+            if "goals" in user_data:
+                formatted_goals = "; ".join(user_data["goals"])
+                memory_lines.append(f"• Goals: {formatted_goals}")
+            if "obstacles" in user_data:
+                formatted_obstacles = "; ".join(user_data["obstacles"])
+                memory_lines.append(f"• Obstacles: {formatted_obstacles}")
             if "identity" in user_data:
                 memory_lines.append(f"• Identity: {user_data['identity']}")
             if "why" in user_data:
                 memory_lines.append(f"• Why: {user_data['why']}")
             user_memory_snippet = "\n".join(memory_lines)
 
-            # Opportunistic why capture
             if emotion_state in ["ashamed", "burned out", "victorious"] and not user_data.get("why"):
                 user_ref.set({"why_pending": True}, merge=True)
                 reply = "Before we go further… why does this matter to you? Like really matter."
             else:
-                # Full prompt for OpenAI
                 prompt = f"""
 You are Big Brother — the older, wiser brother with emotional intelligence who always tells the truth. You’re here to keep this user focused, grounded, and honest. One consistent voice. Adaptive delivery. No sugarcoating.
 
@@ -152,7 +145,6 @@ Message:
 
 Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect — but always as the same voice.
 """
-
                 response = client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
@@ -160,7 +152,6 @@ Respond with emotional intelligence and clarity. You can challenge, reflect, aff
                         {"role": "user", "content": prompt}
                     ]
                 )
-
                 reply = response.choices[0].message.content.strip()
 
         twilio_client.messages.create(
