@@ -78,6 +78,56 @@ def build_user_memory(user_data):
     return "
 ".join(memory_lines)
 
+def build_prompt(emotion, domain, mood, goal, time, memory, message):
+    return f"""
+You are Big Brother - the older, wiser brother with emotional intelligence who always tells the truth. You’re here to keep this user focused, grounded, and honest. One consistent voice. Adaptive delivery. No sugarcoating.
+
+Context:
+• Emotion: {emotion}
+• Domain: {domain}
+• Mood: {mood}
+• Goal: {goal}
+• Time: {time}
+
+Memory:
+{memory}
+
+Incoming Message:
+{message}
+
+Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect - but always as the same voice.
+If the message feels genuine, feel it. If it deserves challenge, give it. Don't pretend. Be real.
+"""
+
+def call_big_brother(prompt):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are Big Brother."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    return response
+    return f"""
+You are Big Brother - the older, wiser brother with emotional intelligence who always tells the truth. You’re here to keep this user focused, grounded, and honest. One consistent voice. Adaptive delivery. No sugarcoating.
+
+Context:
+• Emotion: {emotion}
+• Domain: {domain}
+• Mood: {mood}
+• Goal: {goal}
+• Time: {time}
+
+Memory:
+{memory}
+
+Incoming Message:
+{message}
+
+Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect - but always as the same voice.
+If the message feels genuine, feel it. If it deserves challenge, give it. Don't pretend. Be real.
+"""
+
 def sms_reply():
     try:
         incoming_msg = request.form["Body"]
@@ -116,61 +166,76 @@ def sms_reply():
             return "User opted out", 200
 
         onboarding_stage = user_data.get("onboarding_stage", 0)
+        def handle_onboarding(stage, msg):
+            if stage == 0:
+                user_ref.set({"onboarding_stage": 1}, merge=True)
+                intro = "Welcome to Big Brother AI. Let's keep this simple and real. I'm here to help you become the best version of yourself - the one you know you're capable of becoming."
+                return f"{intro}\n\nLet's start simple: Who are you and what's going on in your life right now?"
 
-        if onboarding_stage == 0:
-            user_ref.set({"onboarding_stage": 1}, merge=True)
-            intro_text = "Welcome to Big Brother AI. Let's keep this simple and real. I'm here to help you become the best version of yourself - the one you know you're capable of becoming."
-            question = "Let's start simple: Who are you and what's going on in your life right now?"
-            reply = f"{intro_text}\n\n{question}"
-        elif onboarding_stage == 1:
-            eval_prompt = f"The user was asked to describe who they are. They said: '{incoming_msg}'. Is this a clear, honest, coaching-grade answer? Reply only 'yes' or 'no'."
-            evaluation = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
-                    {"role": "user", "content": eval_prompt}
-                ]
+            if stage == 1:
+                prompt = f"The user was asked to describe who they are. They said: '{msg}'. Is this a clear, honest, coaching-grade answer? Reply only 'yes' or 'no'."
+                result = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                verdict = result.choices[0].message.content.strip().lower()
+                if verdict.startswith("no"):
+                    return "Don't waste my time. I need to know who you really are if I'm going to help you. Let's try again - who are you, really?"
+                else:
+                    user_ref.set({"identity": msg, "onboarding_stage": 2}, merge=True)
+                    return "What are some specific things you want to accomplish or change in the next 30 days?"
+
+            if stage == 2:
+                prompt = f"The user was asked to list specific goals. They said: '{msg}'. Is this a clear, coaching-ready answer? Reply only 'yes' or 'no'."
+                result = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                verdict = result.choices[0].message.content.strip().lower()
+                if verdict.startswith("no"):
+                    return "That's too vague. I need something more specific to work with. What's one thing you actually want to improve?"
+                else:
+                    goals = [g.strip() for g in msg.split(",") if g.strip()]
+                    goal_objects = [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in goals]
+                    user_ref.set({"goals": goal_objects, "goal_started_at": datetime.utcnow().isoformat(), "onboarding_stage": 3}, merge=True)
+                    return "What usually gets in your way? Be honest."
+
+            if stage == 3:
+                prompt = f"The user was asked what usually gets in their way. They responded: '{msg}'. Is this a specific, coaching-ready answer or is it vague or broad? Reply only 'yes' or 'no'."
+                result = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
+                        {"role": "user", "content": prompt}
+                    ]
+                )
+                verdict = result.choices[0].message.content.strip().lower()
+                if verdict.startswith("no"):
+                    return "That sounds broad. Let's go one level deeper. What specifically tends to trip you up on a daily basis?"
+                else:
+                    obstacles = [o.strip() for o in msg.split(",") if o.strip()]
+                    user_ref.set({"obstacles": obstacles, "onboarding_stage": "complete", "primary_goal_pending": True}, merge=True)
+                    return "Got it. We're locked in. Let's get to work."
+
+            return None
+
+        reply = handle_onboarding(onboarding_stage, incoming_msg)
+        if reply:
+            twilio_client.messages.create(
+                body=reply,
+                from_=TWILIO_PHONE_NUMBER,
+                to=sender
             )
-            verdict = evaluation.choices[0].message.content.strip().lower()
-            if verdict.startswith("no"):
-                reply = "Don't waste my time. I need to know who you really are if I'm going to help you. Let's try again - who are you, really?"
-            else:
-                user_ref.set({"identity": incoming_msg, "onboarding_stage": 2}, merge=True)
-                reply = "What are some specific things you want to accomplish or change in the next 30 days?"
-        elif onboarding_stage == 2:
-            eval_prompt = f"The user was asked to list specific goals. They said: '{incoming_msg}'. Is this a clear, coaching-ready answer? Reply only 'yes' or 'no'."
-            evaluation = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
-                    {"role": "user", "content": eval_prompt}
-                ]
-            )
-            verdict = evaluation.choices[0].message.content.strip().lower()
-            if verdict.startswith("no"):
-                reply = "That's too vague. I need something more specific to work with. What's one thing you actually want to improve?"
-            else:
-                goals = [g.strip() for g in incoming_msg.split(",") if g.strip()]
-                goal_objects = [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in goals]
-                user_ref.set({"goals": goal_objects, "goal_started_at": datetime.utcnow().isoformat(), "onboarding_stage": 3}, merge=True)
-                reply = "What usually gets in your way? Be honest."
-        elif onboarding_stage == 3:
-            eval_prompt = f"The user was asked what usually gets in their way. They responded: '{incoming_msg}'. Is this a specific, coaching-ready answer or is it vague or broad? Reply only 'yes' or 'no'."
-            evaluation = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
-                    {"role": "user", "content": eval_prompt}
-                ]
-            )
-            verdict = evaluation.choices[0].message.content.strip().lower()
-            if verdict.startswith("no"):
-                reply = "That sounds broad. Let's go one level deeper. What specifically tends to trip you up on a daily basis?"
-            else:
-                obstacles = [o.strip() for o in incoming_msg.split(",") if o.strip()]
-                user_ref.set({"obstacles": obstacles, "onboarding_stage": "complete", "primary_goal_pending": True}, merge=True)
-                reply = "Got it. We're locked in. Let's get to work."
-        elif user_data.get("primary_goal_pending"):
+            print(f"[Reply Sent] To: {sender} | Message: {reply}")
+            return "OK", 200
+
+
             user_ref.set({"primary_goal": incoming_msg, "primary_goal_pending": False}, merge=True)
             reply = "Got it. We'll use that as your north star for now. Let's get to work."
         elif user_data.get("why_pending"):
@@ -186,8 +251,7 @@ def sms_reply():
             })
 
             lower_msg = incoming_msg.lower()
-            if any(x in lower_msg for x in ["i failed", "i suck", "i’m a mess", "i can’t", "why bother", "what’s the point"]):
-                emotion_state = "ashamed"
+            emotion_state, domain_context = classify_emotion_and_domain(lower_msg)"ashamed"
             elif any(x in lower_msg for x in ["tired", "burned out", "exhausted", "overwhelmed"]):
                 emotion_state = "burned out"
             elif any(x in lower_msg for x in ["i did it", "crushed it", "win", "nailed it"]):
@@ -197,20 +261,7 @@ def sms_reply():
             else:
                 emotion_state = "neutral"
 
-            if any(x in lower_msg for x in ["gym", "workout", "run", "lift", "training"]):
-                domain_context = "fitness"
-            elif any(x in lower_msg for x in ["food", "eating", "diet", "snack", "binge"]):
-                domain_context = "nutrition"
-            elif any(x in lower_msg for x in ["money", "budget", "broke", "debt"]):
-                domain_context = "finance"
-            elif any(x in lower_msg for x in ["focus", "distraction", "procrastinate", "tasks", "overwhelm"]):
-                domain_context = "productivity"
-            elif any(x in lower_msg for x in ["why", "what’s the point", "purpose", "meaning", "identity"]):
-                domain_context = "mindset"
-            elif any(x in lower_msg for x in ["i hate myself", "i lied", "i relapsed", "i’m lost"]):
-                domain_context = "confession"
-            else:
-                domain_context = "general"
+            
 
             local_hour = datetime.now(timezone.utc).astimezone().hour
             if local_hour < 7:
@@ -242,38 +293,14 @@ def sms_reply():
             if user_data.get("streak_days", 0) >= 7:
                 memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
 
-            user_memory_snippet = "
-".join(memory_lines)
+            user_memory_snippet = "\n".join(memory_lines)
+
 
             coaching_goal = "help the user gain clarity and take action"
 
-            prompt = f"""
-You are Big Brother - the older, wiser brother with emotional intelligence who always tells the truth. You’re here to keep this user focused, grounded, and honest. One consistent voice. Adaptive delivery. No sugarcoating.
+            prompt = build_prompt(emotion_state, domain_context, mood, coaching_goal, time_context, user_memory_snippet, incoming_msg)
 
-Context:
-• Emotion: {emotion_state}
-• Domain: {domain_context}
-• Mood: {mood}
-• Goal: {coaching_goal}
-• Time: {time_context}
-
-Memory:
-{user_memory_snippet}
-
-Incoming Message:
-{incoming_msg}
-
-Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect - but always as the same voice.
-If the message feels genuine, feel it. If it deserves challenge, give it. Don't pretend. Be real.
-"""
-
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are Big Brother."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
+            response = call_big_brother(prompt)
             reply = response.choices[0].message.content.strip()
 
             db.collection("users").document(sender).collection("messages").add({
