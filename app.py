@@ -78,8 +78,7 @@ def build_user_memory(user_data):
         memory_lines.append(f"• Earned Respect: {user_data['wins']} wins logged - this user is putting in work.")
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
-    return "
-".join(memory_lines)
+    return "\n".join(memory_lines)
 
 def build_prompt(emotion, domain, mood, goal, time, memory, message):
     tone_note = {
