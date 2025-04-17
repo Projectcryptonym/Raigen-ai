@@ -16,9 +16,9 @@ TWILIO_PHONE_NUMBER = os.environ.get("TWILIO_PHONE_NUMBER")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 FIREBASE_CREDENTIALS_JSON = os.environ.get("FIREBASE_CREDENTIALS_JSON")
 
+# Initialize clients
 twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 client = OpenAI(api_key=OPENAI_API_KEY)
-
 cred = credentials.Certificate(json.loads(FIREBASE_CREDENTIALS_JSON))
 firebase_admin.initialize_app(cred)
 db = firestore.client()
@@ -37,121 +37,115 @@ def sms_reply():
 
         user_ref = db.collection("users").document(sender)
         user_doc = user_ref.get()
-        history = user_doc.to_dict().get("history", "") if user_doc.exists else ""
+        user_data = user_doc.to_dict() if user_doc.exists else {}
 
-        # ----- Emotion Detection -----
-        lower_msg = incoming_msg.lower()
-        if any(x in lower_msg for x in ["i failed", "i suck", "i’m a mess", "i can’t", "why bother", "what’s the point"]):
-            emotion_state = "ashamed"
-        elif any(x in lower_msg for x in ["tired", "burned out", "exhausted", "overwhelmed"]):
-            emotion_state = "burned out"
-        elif any(x in lower_msg for x in ["i did it", "crushed it", "win", "nailed it"]):
-            emotion_state = "victorious"
-        elif any(x in lower_msg for x in ["anxious", "worried", "panic", "nervous"]):
-            emotion_state = "anxious"
+        # Onboarding logic
+        onboarding_stage = user_data.get("onboarding_stage", 0)
+
+        if onboarding_stage == 0:
+            user_ref.set({"onboarding_stage": 1}, merge=True)
+            intro_text = (
+                "Welcome to Big Brother AI. I'm not here to babysit. I'm here to help you become the person you promised yourself you'd become."
+            )
+            question = "Let’s start simple: Who are you and what’s going on in your life right now?"
+            reply = f"{intro_text}\n\n{question}"
+        elif onboarding_stage == 1:
+            user_ref.set({"identity": incoming_msg, "onboarding_stage": 2}, merge=True)
+            reply = "What’s one specific thing you want to accomplish or change in the next 30 days?"
+        elif onboarding_stage == 2:
+            user_ref.set({"goal": incoming_msg, "onboarding_stage": 3}, merge=True)
+            reply = "What usually gets in your way? Be honest."
+        elif onboarding_stage == 3:
+            user_ref.set({"obstacle": incoming_msg, "onboarding_stage": 4}, merge=True)
+            reply = (
+                "When I check in with you, do you want blunt honesty or more encouragement and support?"
+            )
+        elif onboarding_stage == 4:
+            user_ref.set({"tone_preference": incoming_msg, "onboarding_stage": "complete"}, merge=True)
+            reply = "Got it. We’re locked in. I’ll be keeping an eye on you. Let’s go."
         else:
-            emotion_state = "neutral"
+            # Main logic post-onboarding
+            lower_msg = incoming_msg.lower()
 
-        # ----- Domain Context Detection -----
-        if any(x in lower_msg for x in ["gym", "workout", "run", "lift", "training"]):
-            domain_context = "fitness"
-        elif any(x in lower_msg for x in ["food", "eating", "diet", "snack", "binge"]):
-            domain_context = "nutrition"
-        elif any(x in lower_msg for x in ["money", "budget", "broke", "debt"]):
-            domain_context = "finance"
-        elif any(x in lower_msg for x in ["focus", "distraction", "procrastinate", "tasks", "overwhelm"]):
-            domain_context = "productivity"
-        elif any(x in lower_msg for x in ["why", "what’s the point", "purpose", "meaning", "identity"]):
-            domain_context = "mindset"
-        elif any(x in lower_msg for x in ["i hate myself", "i lied", "i relapsed", "i’m lost"]):
-            domain_context = "confession"
-        else:
-            domain_context = "general"
+            # Emotion detection (still used for delivery style)
+            if any(x in lower_msg for x in ["i failed", "i suck", "i’m a mess", "i can’t", "why bother", "what’s the point"]):
+                emotion_state = "ashamed"
+            elif any(x in lower_msg for x in ["tired", "burned out", "exhausted", "overwhelmed"]):
+                emotion_state = "burned out"
+            elif any(x in lower_msg for x in ["i did it", "crushed it", "win", "nailed it"]):
+                emotion_state = "victorious"
+            elif any(x in lower_msg for x in ["anxious", "worried", "panic", "nervous"]):
+                emotion_state = "anxious"
+            else:
+                emotion_state = "neutral"
 
-        # ----- Behavior Mode Logic -----
-        if emotion_state == "ashamed":
-            behavior_mode = "empathy"
-        elif emotion_state == "burned out":
-            behavior_mode = "reflection"
-        elif emotion_state == "victorious":
-            behavior_mode = "motivation"
-        elif emotion_state == "anxious":
-            behavior_mode = "insight"
-        elif "plan" in lower_msg or "what should i do" in lower_msg:
-            behavior_mode = "strategy"
-        elif "didn’t" in lower_msg or "ghosted" in lower_msg or "failed" in lower_msg:
-            behavior_mode = "accountability"
-        else:
-            behavior_mode = "insight"
+            # Domain context
+            if any(x in lower_msg for x in ["gym", "workout", "run", "lift", "training"]):
+                domain_context = "fitness"
+            elif any(x in lower_msg for x in ["food", "eating", "diet", "snack", "binge"]):
+                domain_context = "nutrition"
+            elif any(x in lower_msg for x in ["money", "budget", "broke", "debt"]):
+                domain_context = "finance"
+            elif any(x in lower_msg for x in ["focus", "distraction", "procrastinate", "tasks", "overwhelm"]):
+                domain_context = "productivity"
+            elif any(x in lower_msg for x in ["why", "what’s the point", "purpose", "meaning", "identity"]):
+                domain_context = "mindset"
+            elif any(x in lower_msg for x in ["i hate myself", "i lied", "i relapsed", "i’m lost"]):
+                domain_context = "confession"
+            else:
+                domain_context = "general"
 
-        coaching_goal = "help the user gain clarity and take action"
+            coaching_goal = "help the user make progress or course-correct"
 
-        # ----- Update Last Interaction Timestamp -----
-        now = datetime.utcnow()
-        user_ref.set({"last_interaction": now.isoformat()}, merge=True)
+            now = datetime.utcnow()
+            user_ref.set({"last_interaction": now.isoformat()}, merge=True)
 
-        # ----- Memory Pull from Firebase -----
-        user_memory_snippet = ""
-        if user_doc.exists:
-            user_data = user_doc.to_dict()
+            # Memory pull
+            user_memory_snippet = ""
             memory_lines = []
-            if "goals" in user_data:
-                memory_lines.append(f"• Their current goal is: {user_data['goals'][0]}")
-            if "last_emotion" in user_data:
-                memory_lines.append(f"• They recently felt: {user_data['last_emotion']}")
-            if "identity_tags" in user_data:
-                memory_lines.append(f"• Identity: {user_data['identity_tags'][0]}")
-            if "confession_log" in user_data and user_data["confession_log"]:
-                memory_lines.append(f"• Confession: {user_data['confession_log'][-1]}")
+            if "goal" in user_data:
+                memory_lines.append(f"• Goal: {user_data['goal']}")
+            if "obstacle" in user_data:
+                memory_lines.append(f"• Common obstacle: {user_data['obstacle']}")
+            if "identity" in user_data:
+                memory_lines.append(f"• Identity: {user_data['identity']}")
             user_memory_snippet = "\n".join(memory_lines)
 
-        # ----- Full Prompt -----
-        prompt = f"""
-You are Big Brother — a tough-love AI coach with emotional intelligence, deep memory, and domain-specific expertise. You speak like a real person — not robotic, not fluffy. You are sometimes blunt, sometimes warm, always real.
+            # Prompt
+            prompt = f"""
+You are Big Brother — the older, wiser brother with emotional intelligence who always tells the truth. You’re here to keep this user focused, grounded, and honest. One consistent voice. Adaptive delivery. No sugarcoating.
 
-Context about the user:
-• Emotion state: {emotion_state}
-• Domain context: {domain_context}
-• Behavior mode: {behavior_mode}
-• Coaching goal: {coaching_goal}
+Context:
+• Emotion: {emotion_state}
+• Domain: {domain_context}
+• Goal: {coaching_goal}
 
-Memory of user:
+Memory:
 {user_memory_snippet}
 
-User message:  
+Message:
 {incoming_msg}
 
-Your response should be personalized, emotionally intelligent, and helpful. Speak in a human voice. Do not summarize the user's message. Get to the point, but with care or intensity based on mode.
-
-Your job:
-• Understand their state
-• Apply the right mode
-• Offer insight, challenge, or comfort
-• Reference past data if relevant
-• End with a call to action or next question if appropriate
+Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect — but always as the same voice.
 """
 
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an accountability AI coach."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are Big Brother."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
 
-        ai_reply = response.choices[0].message.content.strip()
+            reply = response.choices[0].message.content.strip()
 
         twilio_client.messages.create(
-            body=ai_reply,
+            body=reply,
             from_=TWILIO_PHONE_NUMBER,
             to=sender
         )
 
-        print(f"[AI Reply] Sent to {sender}: {ai_reply}")
-
-        updated_history = f"{history}\nUser: {incoming_msg}\nAI: {ai_reply}"
-        user_ref.set({"history": updated_history}, merge=True)
-
+        print(f"[Reply Sent] To: {sender} | Message: {reply}")
         return "OK", 200
 
     except Exception as e:
