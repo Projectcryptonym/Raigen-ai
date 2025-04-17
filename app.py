@@ -225,6 +225,7 @@ def sms_reply():
         })
 
         
+        send_message(reply, sender)
         print(f"[Reply Sent] To: {sender} | Message: {reply}")
         return "OK", 200
 
@@ -288,4 +289,3 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
-
