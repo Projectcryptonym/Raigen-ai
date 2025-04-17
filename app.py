@@ -34,7 +34,6 @@ def handle_onboarding(stage, msg, user_ref, client):
         intro = "Welcome to Big Brother AI. Let's keep this simple and real. I'm here to help you become the best version of yourself - the one you know you're capable of becoming."
         return f"{intro}\\n\\nLet's start simple: Who are you and what's going on in your life right now?"
 
-Let's start simple: Who are you and what's going on in your life right now?"
 
     if stage == 1:
         prompt = f"The user was asked to describe who they are. They said: '{msg}'. Is this a clear, honest, coaching-grade answer? Reply only 'yes' or 'no'."
