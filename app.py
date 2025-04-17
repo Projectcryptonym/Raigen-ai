@@ -36,13 +36,41 @@ def classify_emotion_and_domain(message):
     return emotion, domain
 
 
+import re
+
+def split_into_sms_chunks(text, limit=1500):
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    chunks, current = [], ""
+    for sentence in sentences:
+        if len(current) + len(sentence) + 1 <= limit:
+            current += sentence + " "
+        else:
+            chunks.append(current.strip())
+            current = sentence + " "
+    if current:
+        chunks.append(current.strip())
+    return chunks
+
 def send_message(body, to):
     try:
+        chunks = split_into_sms_chunks(body)
+        for part in chunks:
+            twilio_client.messages.create(
+                body=part,
+                from_=TWILIO_PHONE_NUMBER,
+                to=to
+            )
+    except Exception as e:
+        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")(body, to):
+    try:
+        trimmed = truncate_message(body)
         twilio_client.messages.create(
-            body=body,
+            body=trimmed,
             from_=TWILIO_PHONE_NUMBER,
             to=to
         )
+    except Exception as e:
+        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
     except Exception as e:
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
 
@@ -159,8 +187,7 @@ def sms_reply():
         onboarding_stage = user_data.get("onboarding_stage", 0)
         reply = handle_onboarding(onboarding_stage, incoming_msg, user_ref, client)
         if reply:
-            twilio_client.messages.create(
-                body=reply,
+            send_message(reply,
                 from_=TWILIO_PHONE_NUMBER,
                 to=sender
             )
@@ -169,7 +196,7 @@ def sms_reply():
         if user_data.get("why_pending"):
             user_ref.set({"why": incoming_msg, "why_pending": False}, merge=True)
             reply = "That’s powerful. I’ll remember that. Let’s get back to work."
-            twilio_client.messages.create(body=reply, from_=TWILIO_PHONE_NUMBER, to=sender)
+            send_message(reply, from_=TWILIO_PHONE_NUMBER, to=sender)
             return "OK", 200
 
         if user_data.get("primary_goal_pending"):
@@ -278,6 +305,7 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
+
 
 
 
