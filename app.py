@@ -62,9 +62,6 @@ def send_message(body, to):
             )
     except Exception as e:
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
-        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
-    except Exception as e:
-        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
 
 def call_big_brother(prompt):
     try:
@@ -188,13 +185,13 @@ def sms_reply():
         if user_data.get("why_pending"):
             user_ref.set({"why": incoming_msg, "why_pending": False}, merge=True)
             reply = "That’s powerful. I’ll remember that. Let’s get back to work."
-            send_message(reply, from_=TWILIO_PHONE_NUMBER, to=sender)
+            send_message(reply, sender)
             return "OK", 200
 
         if user_data.get("primary_goal_pending"):
             user_ref.set({"primary_goal": incoming_msg, "primary_goal_pending": False}, merge=True)
             reply = "Got it. We’ll use that as your north star for now. Let’s get to work."
-            twilio_client.messages.create(body=reply, from_=TWILIO_PHONE_NUMBER, to=sender)
+            send_message(reply, sender)
             return "OK", 200
 
         now = datetime.utcnow()
@@ -297,6 +294,7 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
+
 
 
 
