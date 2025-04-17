@@ -61,15 +61,7 @@ def send_message(body, to):
                 to=to
             )
     except Exception as e:
-        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")(body, to):
-    try:
-        trimmed = truncate_message(body)
-        twilio_client.messages.create(
-            body=trimmed,
-            from_=TWILIO_PHONE_NUMBER,
-            to=to
-        )
-    except Exception as e:
+        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
     except Exception as e:
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
@@ -305,6 +297,7 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
+
 
 
 
