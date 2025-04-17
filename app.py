@@ -33,7 +33,7 @@ def handle_onboarding(stage, msg, user_ref, client):
             user_ref.set({"last_interaction": now.isoformat()}, merge=True)
         except Exception as fb_error:
             print(f"[Firebase Error] Failed to update last_interaction: {str(fb_error)}")
-        intro = "Welcome to Big Brother AI. Thank you for taking the next step in your self-improvement journey. I'm here to help you achieve more, stress less, and live a happier, fuller life. You're here because you want something greater — I’m here to walk alongside you and keep you grounded in that mission. I’ll be honest with you, I’ll hold you to your word, and I’ll have your back every step of the way."Welcome to Big Brother AI. This isn’t some pep talk. This is a turning point. I’m the brother who’s been through it, who sees through your excuses, and who still believes you can become someone you're proud of. I’m not here to judge — I’m here to help you rise.""
+        intro = "Welcome to Big Brother AI. Thank you for taking the next step in your self-improvement journey. I'm here to help you achieve more, stress less, and live a happier, fuller life. You're here because you want something greater — I’m here to walk alongside you and keep you grounded in that mission. I’ll be honest with you, I’ll hold you to your word, and I’ll have your back every step of the way."
         return f"{intro}\n\nLet's start simple: Who are you and what's going on in your life right now?"
 
 
@@ -137,6 +137,16 @@ def call_big_brother(prompt):
         return None
 
 @app.route("/sms", methods=["POST"])
+def send_message(body, to):
+    try:
+        twilio_client.messages.create(
+            body=body,
+            from_=TWILIO_PHONE_NUMBER,
+            to=to
+        )
+    except Exception as e:
+        print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
+
 def sms_reply():
     try:
         incoming_msg = request.form["Body"]
@@ -155,8 +165,8 @@ def sms_reply():
         if incoming_msg.strip().lower() in ["stop", "unsubscribe", "cancel", "leave me alone"]:
             user_ref.set({"opted_out": True}, merge=True)
             try:
-        twilio_client.messages.create(
-                body="Understood. You won’t receive any more messages. If you change your mind, just say 'START'.",
+        send_message(
+                send_message("Understood. You won’t receive any more messages. If you change your mind, just say 'START'.", sender)
                 from_=TWILIO_PHONE_NUMBER,
         to=sender
     )
@@ -167,17 +177,13 @@ except Exception as twilio_error:
         onboarding_stage = user_data.get("onboarding_stage", 0)
         reply = handle_onboarding(onboarding_stage, incoming_msg, user_ref, client)
         if reply:
-            twilio_client.messages.create(
-                body=reply,
-                from_=TWILIO_PHONE_NUMBER,
-                to=sender
-            )
+            send_message(reply, sender)
             return "OK", 200
 
         if user_data.get("why_pending"):
             user_ref.set({"why": incoming_msg, "why_pending": False}, merge=True)
             reply = "That’s a powerful reason. I won’t forget it — and neither should you."
-            twilio_client.messages.create(body=reply, from_=TWILIO_PHONE_NUMBER, to=sender)
+            send_message(reply, sender)
             return "OK", 200
 
         if user_data.get("primary_goal_pending"):
@@ -296,6 +302,8 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
+
 
 
 
