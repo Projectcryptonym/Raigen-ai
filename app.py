@@ -55,12 +55,12 @@ def send_message(body, to):
     try:
         chunks = split_into_sms_chunks(body)
         for part in chunks:
-            twilio_client.messages.create(
+            msg = twilio_client.messages.create(
                 body=part,
                 from_=TWILIO_PHONE_NUMBER,
                 to=to
             )
-    except Exception as e:
+            print(f"[Twilio] Sent chunk to {to} | SID: {msg.sid} | Status: {msg.status}")
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
 
 def call_big_brother(prompt):
@@ -287,4 +287,3 @@ Otherwise, ask a follow-up question to gently guide them deeper.
         return "Tell me more. I’m listening."
 
     return None
-
