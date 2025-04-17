@@ -225,12 +225,7 @@ def sms_reply():
             "from_user": False
         })
 
-        twilio_client.messages.create(
-            body=reply,
-            from_=TWILIO_PHONE_NUMBER,
-            to=sender
-        )
-
+        
         print(f"[Reply Sent] To: {sender} | Message: {reply}")
         return "OK", 200
 
