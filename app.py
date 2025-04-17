@@ -29,9 +29,12 @@ def home():
 
 def handle_onboarding(stage, msg, user_ref, client):
     if stage == 0:
-        user_ref.set({"onboarding_stage": 1}, merge=True)
-        intro = "Welcome to Big Brother AI. Let's keep this simple and real. I'm here to help you become the best version of yourself - the one you know you're capable of becoming."
-        return f"{intro}\\n\\nLet's start simple: Who are you and what's going on in your life right now?"
+        try:
+            user_ref.set({"last_interaction": now.isoformat()}, merge=True)
+        except Exception as fb_error:
+            print(f"[Firebase Error] Failed to update last_interaction: {str(fb_error)}")
+        intro = "Welcome to Big Brother AI. Thank you for taking the next step in your self-improvement journey. I'm here to help you achieve more, stress less, and live a happier, fuller life. You're here because you want something greater — I’m here to walk alongside you and keep you grounded in that mission. I’ll be honest with you, I’ll hold you to your word, and I’ll have your back every step of the way."Welcome to Big Brother AI. This isn’t some pep talk. This is a turning point. I’m the brother who’s been through it, who sees through your excuses, and who still believes you can become someone you're proud of. I’m not here to judge — I’m here to help you rise.""
+        return f"{intro}\n\nLet's start simple: Who are you and what's going on in your life right now?"
 
 
 
@@ -47,7 +50,7 @@ def handle_onboarding(stage, msg, user_ref, client):
         )
         verdict = result.choices[0].message.content.strip().lower()
         if verdict.startswith("no"):
-            return "Don't waste my time. I need to know who you really are if I'm going to help you. Let's try again - who are you, really?"
+            return "Let’s keep it real — I can’t help you if I don’t know who you are. Try again, and tell me something honest."
         else:
             user_ref.set({"identity": msg, "onboarding_stage": 2}, merge=True)
             return "What are some specific things you want to accomplish or change in the next 30 days?"
@@ -63,7 +66,7 @@ def handle_onboarding(stage, msg, user_ref, client):
         )
         verdict = result.choices[0].message.content.strip().lower()
         if verdict.startswith("no"):
-            return "That's too vague. I need something more specific to work with. What's one thing you actually want to improve?"
+            return "That’s still a little broad. What’s one meaningful change you’re committed to making — something that actually matters to you?"
         else:
             goals = [g.strip() for g in msg.split(",") if g.strip()]
             goal_objects = [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in goals]
@@ -85,11 +88,19 @@ def handle_onboarding(stage, msg, user_ref, client):
         else:
             obstacles = [o.strip() for o in msg.split(",") if o.strip()]
             user_ref.set({"obstacles": obstacles, "onboarding_stage": "complete", "primary_goal_pending": True}, merge=True)
-            return "Got it. We're locked in. Let's get to work."
+            return "Alright — we’ve got a foundation. Let’s get moving."
 
     return None
 
 def build_prompt(emotion, domain, mood, goal, time, memory, message):
+    tone_note = {
+        "locked-in": "You can affirm their momentum and push them harder.",
+        "respectful": "Recognize their effort and challenge them to step it up.",
+        "cold": "They’ve been silent or inconsistent — give a gentle but firm nudge.",
+        "frustrated": "They’ve struggled with clarity or resistance — stay patient, but don’t let them off easy.",
+        "neutral": "Stay grounded, honest, and supportive as default."
+    }.get(mood, "Stay grounded, honest, and supportive as default.")
+
     return f"""
 You are Big Brother - the older, wiser brother with emotional intelligence who always tells the truth. You’re here to keep this user focused, grounded, and honest. One consistent voice. Adaptive delivery. No sugarcoating.
 
@@ -106,19 +117,24 @@ Memory:
 Incoming Message:
 {message}
 
-Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect - but always as the same voice.
+Respond with emotional intelligence and clarity. You can challenge, reflect, affirm, or redirect — but always as the same voice.
+Tone Guidance: {tone_note}
 If the message feels genuine, feel it. If it deserves challenge, give it. Don't pretend. Be real.
 """
 
 def call_big_brother(prompt):
-    response = client.chat.completions.create(
-        model="gpt-4o",
-        messages=[
-            {"role": "system", "content": "You are Big Brother."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are Big Brother — a grounded, emotionally intelligent older brother who speaks with calm honesty and wise perspective. You are supportive, thoughtful, and unafraid to speak the truth when needed. Your tone is human and steady — warm when called for, firm when necessary. Never robotic."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response
+    except Exception as e:
+        print(f"[OpenAI Error] {str(e)}")
+        return None
 
 @app.route("/sms", methods=["POST"])
 def sms_reply():
@@ -138,11 +154,14 @@ def sms_reply():
 
         if incoming_msg.strip().lower() in ["stop", "unsubscribe", "cancel", "leave me alone"]:
             user_ref.set({"opted_out": True}, merge=True)
-            twilio_client.messages.create(
+            try:
+        twilio_client.messages.create(
                 body="Understood. You won’t receive any more messages. If you change your mind, just say 'START'.",
                 from_=TWILIO_PHONE_NUMBER,
-                to=sender
-            )
+        to=sender
+    )
+except Exception as twilio_error:
+    print(f"[Twilio Error] Failed to send message to {sender}: {str(twilio_error)}")
             return "Opt-out confirmed", 200
 
         onboarding_stage = user_data.get("onboarding_stage", 0)
@@ -157,13 +176,13 @@ def sms_reply():
 
         if user_data.get("why_pending"):
             user_ref.set({"why": incoming_msg, "why_pending": False}, merge=True)
-            reply = "That’s powerful. I’ll remember that. Let’s get back to work."
+            reply = "That’s a powerful reason. I won’t forget it — and neither should you."
             twilio_client.messages.create(body=reply, from_=TWILIO_PHONE_NUMBER, to=sender)
             return "OK", 200
 
         if user_data.get("primary_goal_pending"):
             user_ref.set({"primary_goal": incoming_msg, "primary_goal_pending": False}, merge=True)
-            reply = "Got it. We’ll use that as your north star for now. Let’s get to work."
+            reply = "That gives us a direction to work toward. I’ll keep us anchored there as we go."
             twilio_client.messages.create(body=reply, from_=TWILIO_PHONE_NUMBER, to=sender)
             return "OK", 200
 
@@ -171,6 +190,7 @@ def sms_reply():
 
         now = datetime.utcnow()
         user_ref.set({"last_interaction": now.isoformat()}, merge=True)
+        try:
         db.collection("users").document(sender).collection("messages").add({
             "timestamp": now.isoformat(),
             "message": incoming_msg,
@@ -203,13 +223,15 @@ def sms_reply():
 
         prompt = build_prompt(emotion_state, domain_context, mood, coaching_goal, time_context, user_memory_snippet, incoming_msg)
         response = call_big_brother(prompt)
-        reply = response.choices[0].message.content.strip()
+        reply = response.choices[0].message.content.strip() if response else "I ran into a technical issue processing that. Let’s try again in a moment."
 
         db.collection("users").document(sender).collection("messages").add({
             "timestamp": now.isoformat(),
             "message": reply,
             "from_user": False
         })
+    except Exception as log_error:
+        print(f"[Firebase Error] Failed to log AI reply: {str(log_error)}")
 
         twilio_client.messages.create(
             body=reply,
@@ -274,6 +296,7 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
 
 
 
