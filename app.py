@@ -59,6 +59,10 @@ def sms_reply():
             )
             return "Opt-out confirmed", 200
 
+        if user_data.get("paused"):
+            print(f"[Paused User] {sender} is paused. Ignoring until reengaged.")
+            return "User paused", 200
+
         if user_data.get("opted_out"):
             print(f"[Opted Out] {sender} is opted out. Ignoring message.")
             return "User opted out", 200
@@ -290,4 +294,5 @@ Respond with emotional intelligence and clarity. You can challenge, reflect, aff
     except Exception as e:
         print(f"[Error] {str(e)}")
         return str(e), 500
+
 
