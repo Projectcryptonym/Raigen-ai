@@ -222,7 +222,9 @@ def sms_reply():
         return "OK", 200
 
     except Exception as e:
+        import traceback
         print(f"[Error] {str(e)}")
+        traceback.print_exc()
         return str(e), 500
 
 def classify_emotion_and_domain(message):
@@ -273,6 +275,7 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
 
 
 
