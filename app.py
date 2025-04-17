@@ -29,66 +29,60 @@ def home():
 
 def handle_onboarding(stage, msg, user_ref, client):
     if stage == 0:
-        try:
-            user_ref.set({"last_interaction": now.isoformat()}, merge=True)
-        except Exception as fb_error:
-            print(f"[Firebase Error] Failed to update last_interaction: {str(fb_error)}")
-        intro = "Welcome to Big Brother AI. Thank you for taking the next step in your self-improvement journey. I'm here to help you achieve more, stress less, and live a happier, fuller life. You're here because you want something greater — I’m here to walk alongside you and keep you grounded in that mission. I’ll be honest with you, I’ll hold you to your word, and I’ll have your back every step of the way."
-        return f"{intro}\n\nLet's start simple: Who are you and what's going on in your life right now?"
+        user_ref.set({"onboarding_stage": "dynamic", "discovery_progress": []}, merge=True)
+        intro = "Welcome to Big Brother AI. This is the beginning of something real. I’m not here to waste your time—I’m here to help you become the strongest, sharpest, most disciplined version of yourself. And I’ve got your back."
+        return f"{intro}
 
+Let’s start with something simple: Who are you, really?"
 
+    if stage == "dynamic":
+        progress = user_ref.get().to_dict().get("discovery_progress", [])
+        progress.append(msg)
+        user_ref.set({"discovery_progress": progress}, merge=True)
 
+        if len(progress) < 3:
+            prompt = f"""
+You are Big Brother, an emotionally intelligent AI coach.
+You are currently onboarding a new user through open conversation.
+Your goal is to discover 3 things:
+1. Who this person is (identity, values, current situation)
+2. What they want to accomplish (if they have any goals)
+3. What tends to get in their way (internal or external)
 
-    if stage == 1:
-        prompt = f"The user was asked to describe who they are. They said: '{msg}'. Is this a clear, honest, coaching-grade answer? Reply only 'yes' or 'no'."
-        result = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        verdict = result.choices[0].message.content.strip().lower()
-        if verdict.startswith("no"):
-            return "Let’s keep it real — I can’t help you if I don’t know who you are. Try again, and tell me something honest."
-        else:
-            user_ref.set({"identity": msg, "onboarding_stage": 2}, merge=True)
-            return "What are some specific things you want to accomplish or change in the next 30 days?"
+The user has shared:
+{chr(10).join(progress)}
 
-    if stage == 2:
-        prompt = f"The user was asked to list specific goals. They said: '{msg}'. Is this a clear, coaching-ready answer? Reply only 'yes' or 'no'."
-        result = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        verdict = result.choices[0].message.content.strip().lower()
-        if verdict.startswith("no"):
-            return "That’s still a little broad. What’s one meaningful change you’re committed to making — something that actually matters to you?"
-        else:
-            goals = [g.strip() for g in msg.split(",") if g.strip()]
-            goal_objects = [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in goals]
-            user_ref.set({"goals": goal_objects, "goal_started_at": datetime.utcnow().isoformat(), "onboarding_stage": 3}, merge=True)
-            return "What usually gets in your way? Be honest."
+If you feel you’ve gathered enough to proceed, reply with:
+DONE:
+{{"identity": ..., "goals": [...], "obstacles": [...], "emotion": ...}}
 
-    if stage == 3:
-        prompt = f"The user was asked what usually gets in their way. They responded: '{msg}'. Is this a specific, coaching-ready answer or is it vague or broad? Reply only 'yes' or 'no'."
-        result = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are a clarity evaluator for an AI coach."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        verdict = result.choices[0].message.content.strip().lower()
-        if verdict.startswith("no"):
-            return "That sounds broad. Let's go one level deeper. What specifically tends to trip you up on a daily basis?"
-        else:
-            obstacles = [o.strip() for o in msg.split(",") if o.strip()]
-            user_ref.set({"obstacles": obstacles, "onboarding_stage": "complete", "primary_goal_pending": True}, merge=True)
-            return "Alright — we’ve got a foundation. Let’s get moving."
+Otherwise, ask a follow-up question to gently guide them deeper.
+"""
+            ai_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are Big Brother."},
+                    {"role": "user", "content": prompt.strip()}
+                ]
+            ).choices[0].message.content.strip()
+
+            if ai_response.startswith("DONE:"):
+                import json
+                extracted = json.loads(ai_response.replace("DONE:", "").strip())
+                user_ref.set({
+                    "identity": extracted.get("identity"),
+                    "goals": [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in extracted.get("goals", [])],
+                    "obstacles": extracted.get("obstacles", []),
+                    "emotion": extracted.get("emotion"),
+                    "goal_started_at": datetime.utcnow().isoformat(),
+                    "onboarding_stage": "complete",
+                    "primary_goal_pending": True
+                }, merge=True)
+                return "Got it. You’re locked in. Let’s get to work."
+            else:
+                return ai_response
+
+        return "Tell me more. I’m listening."
 
     return None
 
@@ -296,6 +290,7 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
 
 
 
