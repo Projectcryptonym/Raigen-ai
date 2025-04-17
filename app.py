@@ -176,7 +176,7 @@ def sms_reply():
         onboarding_stage = user_data.get("onboarding_stage", 0)
         reply = handle_onboarding(onboarding_stage, incoming_msg, user_ref, client)
         if reply:
-                        send_message(reply, sender)
+            send_message(reply, sender)
             print(f"[SMS SENT] {reply}")
             return "OK", 200
 
