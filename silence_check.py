@@ -30,6 +30,15 @@ def send_silence_pings():
         data = user.to_dict()
         phone = user.id
 
+        # Reset silence ping count if user has replied recently
+        if data.get("silence_ping_count", 0) > 0:
+            last = data.get("last_interaction")
+            if last:
+                last_dt = datetime.fromisoformat(last)
+                if last_dt >= silence_threshold:
+                    db.collection("users").document(phone).set({"silence_ping_count": 0}, merge=True)
+                    continue
+
         if data.get("onboarding_stage") != "complete":
             continue
         if data.get("opted_out") == True:
