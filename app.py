@@ -136,7 +136,6 @@ def call_big_brother(prompt):
         print(f"[OpenAI Error] {str(e)}")
         return None
 
-@app.route("/sms", methods=["POST"])
 def send_message(body, to):
     try:
         twilio_client.messages.create(
@@ -146,6 +145,8 @@ def send_message(body, to):
         )
     except Exception as e:
         print(f"[Twilio Error] Failed to send message to {to}: {str(e)}")
+
+@app.route("/sms", methods=["POST"])
 
 def sms_reply():
     try:
@@ -295,6 +296,8 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
+
 
 
 
