@@ -163,9 +163,9 @@ def sms_reply():
             return "User opted out", 200
 
         if incoming_msg.strip().lower() in ["stop", "unsubscribe", "cancel", "leave me alone"]:
-    user_ref.set({"opted_out": True}, merge=True)
-    send_message("Understood. You won’t receive any more messages. If you change your mind, just say 'START'.", sender)
-    return "Opt-out confirmed", 200
+            user_ref.set({"opted_out": True}, merge=True)
+            send_message("Understood. You won’t receive any more messages. If you change your mind, just say 'START'.", sender)
+            return "Opt-out confirmed", 200
 
         onboarding_stage = user_data.get("onboarding_stage", 0)
         reply = handle_onboarding(onboarding_stage, incoming_msg, user_ref, client)
@@ -182,19 +182,21 @@ def sms_reply():
         if user_data.get("primary_goal_pending"):
             user_ref.set({"primary_goal": incoming_msg, "primary_goal_pending": False}, merge=True)
             reply = "That gives us a direction to work toward. I’ll keep us anchored there as we go."
-            twilio_client.messages.create(body=reply, from_=TWILIO_PHONE_NUMBER, to=sender)
+            send_message(reply, sender)
             return "OK", 200
 
         emotion_state, domain_context = classify_emotion_and_domain(incoming_msg.lower())
-
         now = datetime.utcnow()
         user_ref.set({"last_interaction": now.isoformat()}, merge=True)
+
         try:
-    db.collection("users").document(sender).collection("messages").add({
-        "timestamp": now.isoformat(),
-        "message": incoming_msg,
-        "from_user": True
-    })
+            db.collection("users").document(sender).collection("messages").add({
+                "timestamp": now.isoformat(),
+                "message": incoming_msg,
+                "from_user": True
+            })
+        except Exception as log_error:
+            print(f"[Firebase Error] Failed to log user message: {str(log_error)}")
 
         local_hour = datetime.now(timezone.utc).astimezone().hour
         if local_hour < 7:
@@ -217,6 +219,7 @@ def sms_reply():
             mood = "cold"
         elif user_data.get("clarity_push_count", 0) >= 2:
             mood = "frustrated"
+
         coaching_goal = "help the user gain clarity and take action"
         user_memory_snippet = build_user_memory(user_data)
 
@@ -224,19 +227,16 @@ def sms_reply():
         response = call_big_brother(prompt)
         reply = response.choices[0].message.content.strip() if response else "I ran into a technical issue processing that. Let’s try again in a moment."
 
-        db.collection("users").document(sender).collection("messages").add({
-            "timestamp": now.isoformat(),
-            "message": reply,
-            "from_user": False
-        })
-    except Exception as log_error:
-        print(f"[Firebase Error] Failed to log AI reply: {str(log_error)}")
+        try:
+            db.collection("users").document(sender).collection("messages").add({
+                "timestamp": now.isoformat(),
+                "message": reply,
+                "from_user": False
+            })
+        except Exception as log_error:
+            print(f"[Firebase Error] Failed to log AI reply: {str(log_error)}")
 
-        twilio_client.messages.create(
-            body=reply,
-            from_=TWILIO_PHONE_NUMBER,
-            to=sender
-        )
+        send_message(reply, sender)
 
         print(f"[Reply Sent] To: {sender} | Message: {reply}")
         return "OK", 200
@@ -295,5 +295,7 @@ def build_user_memory(user_data):
     if user_data.get("streak_days", 0) >= 7:
         memory_lines.append(f"• Streak: {user_data['streak_days']} days active - don’t break momentum.")
     return "\n".join(memory_lines)
+
+
 
 
