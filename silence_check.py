@@ -5,6 +5,7 @@ import firebase_admin
 from firebase_admin import credentials
 import os
 import json
+import random
 
 # Environment variables
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")
@@ -35,7 +36,6 @@ def send_silence_pings():
             continue
 
         silence_count = data.get("silence_ping_count", 0)
-
         last = data.get("last_interaction")
         if not last:
             continue
@@ -43,7 +43,6 @@ def send_silence_pings():
         last_dt = datetime.fromisoformat(last)
         if last_dt < silence_threshold:
             print(f"[Silence] {phone} has been quiet since {last_dt}")
-            import random
 
             messages = [
                 "You’ve been quiet. That usually means something’s off. Want to talk?",
@@ -68,3 +67,4 @@ def send_silence_pings():
 
 if __name__ == "__main__":
     send_silence_pings()
+
