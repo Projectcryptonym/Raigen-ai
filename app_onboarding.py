@@ -17,8 +17,7 @@ def handle_onboarding(stage, msg, user_ref, client):
         progress.append(msg)
         user_ref.set({"discovery_progress": progress}, merge=True)
 
-        if len(progress) < 3:
-            prompt = f"""
+        prompt = f"""
 You are Big Brother, an emotionally intelligent AI coach.
 You are currently onboarding a new user through open conversation.
 Your goal is to discover 3 things:
@@ -35,31 +34,30 @@ DONE:
 
 Otherwise, ask a follow-up question to gently guide them deeper.
 """
-            ai_response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are Big Brother."},
-                    {"role": "user", "content": prompt.strip()}
-                ]
-            ).choices[0].message.content.strip()
+        ai_response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are Big Brother."},
+                {"role": "user", "content": prompt.strip()}
+            ]
+        ).choices[0].message.content.strip()
 
-            if ai_response.startswith("DONE:"):
-                import json
-                extracted = json.loads(ai_response.replace("DONE:", "").strip())
-                user_ref.set({
-                    "identity": extracted.get("identity"),
-                    "goals": [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in extracted.get("goals", [])],
-                    "obstacles": extracted.get("obstacles", []),
-                    "emotion": extracted.get("emotion"),
-                    "goal_started_at": datetime.utcnow().isoformat(),
-                    "onboarding_stage": "complete",
-                    "primary_goal_pending": True
-                }, merge=True)
-                return "Got it. You’re locked in. Let’s get to work."
-            else:
-                return ai_response
-
-        return "Tell me more. I’m listening."
+        if ai_response.startswith("DONE:"):
+            import json
+            extracted = json.loads(ai_response.replace("DONE:", "").strip())
+            user_ref.set({
+                "identity": extracted.get("identity"),
+                "goals": [{"text": g, "created_at": datetime.utcnow().isoformat(), "progress": []} for g in extracted.get("goals", [])],
+                "obstacles": extracted.get("obstacles", []),
+                "emotion": extracted.get("emotion"),
+                "goal_started_at": datetime.utcnow().isoformat(),
+                "onboarding_stage": "complete",
+                "primary_goal_pending": True
+            }, merge=True)
+            return "Got it. You’re locked in. Let’s get to work."
+        else:
+            return ai_response
 
     return None
+
 
