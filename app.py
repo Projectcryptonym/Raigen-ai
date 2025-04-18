@@ -238,12 +238,12 @@ def handle_onboarding(stage, msg, user_ref, client):
     if stage not in [0, "dynamic"]:
         user_ref.set({"onboarding_stage": "dynamic", "discovery_progress": []}, merge=True)
         intro = "Welcome to Big Brother AI. Thank you for taking the next step in your self-improvement journey. I'm here to help you achieve more, stress less, and live a happier, fuller life. You're here because you want something greater — I’m here to walk alongside you and keep you grounded in that mission. I’ll be honest with you, I’ll hold you to your word, and I’ll have your back every step of the way."
-        return f"{intro}\\n\\nLet’s start with something simple: Who are you, really?"
+        return f"{intro}\\n\\nLet’s start with something simple: what is your name and what do you do?"
 
     if stage == 0:
         user_ref.set({"onboarding_stage": "dynamic", "discovery_progress": []}, merge=True)
         intro = "Welcome to Big Brother AI. Thank you for taking the next step in your self-improvement journey. I'm here to help you achieve more, stress less, and live a happier, fuller life. You're here because you want something greater — I’m here to walk alongside you and keep you grounded in that mission. I’ll be honest with you, I’ll hold you to your word, and I’ll have your back every step of the way."
-        return f"{intro}\n\nLet’s start with something simple: Who are you, really?"
+        return f"{intro}\\n\\nLet’s start with something simple: What is your name and what do you do?"
 
     if stage == "dynamic":
         progress = user_ref.get().to_dict().get("discovery_progress", [])
