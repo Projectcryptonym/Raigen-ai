@@ -7,8 +7,18 @@ import os
 import json
 from datetime import datetime, timezone
 import re
+from analysis_api import analysis_bp
+from plan_api import plan_bp
+from sms_webhook import sms_bp
+from onboarding_api import onboarding_bp
 
 app = Flask(__name__)
+
+# Resgister Routes
+app.register_blueprint(analysis_bp)
+app.register_blueprint(plan_bp)
+app.register_blueprint(sms_bp)
+app.register_blueprint(onboarding_bp)
 
 # Setup
 TWILIO_ACCOUNT_SID = os.environ.get("TWILIO_ACCOUNT_SID")

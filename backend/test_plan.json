@@ -1,0 +1,37 @@
+{
+  "user_id": "u1",
+  "tasks": [
+    {
+      "title": "Deep Work: Pitch",
+      "goal_id": null,
+      "effort_min": 120,
+      "energy": "high",
+      "urgency": 3,
+      "impact": 3
+    },
+    {
+      "title": "Admin Inbox Zero",
+      "goal_id": null,
+      "effort_min": 45,
+      "energy": "low",
+      "urgency": 2,
+      "impact": 1
+    }
+  ],
+  "free_windows": [],
+  "user_prefs": {
+    "quiet_hours": {
+      "start": "22:00",
+      "end": "07:00"
+    },
+    "hard_blocks": [
+      {
+        "label": "work",
+        "start": "09:00",
+        "end": "17:00",
+        "days": [1, 2, 3, 4, 5]
+      }
+    ],
+    "max_day_min": 240
+  }
+} 
