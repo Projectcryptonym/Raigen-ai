@@ -1,6 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Tuple
+import hashlib
+import json
 from .conflict_engine import within_quiet_hours, hard_block_conflict, exceeds_daily_load
+
+def _block_id(b: Dict) -> str:
+    """Generate stable block ID based on content"""
+    seed = json.dumps([b["title"], b["start"], b["end"], b.get("goal_id")], sort_keys=True)
+    return hashlib.sha1(seed.encode()).hexdigest()[:10]
 
 def score(task: Dict) -> float:
     urgency = float(task.get("urgency", 1.0))
@@ -41,14 +48,16 @@ def pack_tasks(free_windows: List[Tuple[datetime, datetime]],
                 if exceeds_daily_load(existing_blocks_today + _as_blocks(out), need, max_minutes_per_day=max_day):
                     # cannot place more today
                     break
-                out.append({
+                blk = {
                     "title": t["title"],
                     "start": _iso(cand_s),
                     "end": _iso(cand_e),
                     "goal_id": t.get("goal_id"),
                     "energy": t.get("energy", None),
                     "locked": False
-                })
+                }
+                blk["id"] = _block_id(blk)
+                out.append(blk)
                 placed = True
                 break
             if placed: break

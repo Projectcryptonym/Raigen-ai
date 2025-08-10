@@ -87,6 +87,23 @@ export default function App() {
     setEvents(r.events || []);
   }
 
+  async function complete(blockId: string) {
+    try {
+      await api("/plan/complete", { 
+        method: "POST", 
+        body: JSON.stringify({ 
+          user_id: userId, 
+          block_id: blockId, 
+          completed: true 
+        })
+      });
+      await fetchPlan(); // Refresh the plan to show updated completion status
+    } catch (e) {
+      console.log("Complete failed", e);
+      alert("Failed to mark as complete");
+    }
+  }
+
   return (
     <SafeAreaView style={{ flex:1, padding:16 }}>
       <Text style={{ fontSize:22, fontWeight:"600", marginBottom:12 }}>Raigen</Text>
@@ -113,7 +130,25 @@ export default function App() {
           <>
             <Text style={{ fontWeight:"600" }}>{plan.date}</Text>
             {plan.blocks?.length ? plan.blocks.map((b:any, i:number) => (
-              <Text key={i} style={{ marginVertical:2 }}>• {b.title} — {b.start} → {b.end}</Text>
+              <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 2 }}>
+                <Text style={{ flex: 1 }}>• {b.title} — {b.start} → {b.end}</Text>
+                {b.id && !b.completed && (
+                  <TouchableOpacity 
+                    onPress={() => complete(b.id)} 
+                    style={{ 
+                      backgroundColor: '#4CAF50', 
+                      paddingHorizontal: 8, 
+                      paddingVertical: 4, 
+                      borderRadius: 4 
+                    }}
+                  >
+                    <Text style={{ color: 'white', fontSize: 12 }}>Done</Text>
+                  </TouchableOpacity>
+                )}
+                {b.completed && (
+                  <Text style={{ color: '#4CAF50', fontSize: 12, fontWeight: 'bold' }}>✓ Done</Text>
+                )}
+              </View>
             )) : <Text>No blocks yet.</Text>}
             {plan.rationale ? <Text style={{ marginTop:6, fontStyle:"italic" }}>{plan.rationale}</Text> : null}
           </>
