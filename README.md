@@ -1,6 +1,6 @@
-# Big Brother AI
+# Raigen AI
 
-Big Brother is an emotionally intelligent accountability coach that communicates over SMS. It adapts its tone, remembers user context, and proactively checks in when users go silent.
+Raigen ai is an emotionally intelligent accountability coach that communicates over SMS. It adapts its tone, remembers user context, and proactively checks in when users go silent.
 
 ---
 
@@ -10,7 +10,7 @@ Big Brother is an emotionally intelligent accountability coach that communicates
 - Handles SMS input via Twilio
 - Runs onboarding flow (identity, goal, obstacle, tone)
 - Detects emotion & domain
-- Generates GPT-4o responses using a unified Big Brother voice
+- Generates GPT-4o responses using a unified Raigen ai voice
 - Opportunistically captures user's deeper "why"
 - Handles opt-outs and logs user interaction history
 
